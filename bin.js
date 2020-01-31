@@ -44,7 +44,7 @@ async function download (args) {
   progress.start(total, downloaded)
   setInterval(updateProgressBar, 200)
 
-  const mirror = mirrorFolder({ name: '/', fs: drive }, { name: args.output })
+  const mirror = mirrorFolder({ name: '/', fs: drive }, { name: args.output }, { keepExisting: true })
   mirror.on('put', src => {
     progress.update(downloaded, { filename: src })
   })
