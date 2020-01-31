@@ -24,7 +24,9 @@ async function initialize (args) {
   await networker.seed(drive.discoveryKey, { announce: false, lookup: true })
   console.log('Waiting for a connection...')
   await new Promise(resolve => {
-    networker.once('connection', resolve)
+    networker.on('stream-opened', stream => {
+      stream.once('handshake', resolve)
+    })
   })
 
   return { drive, store, networker }
@@ -32,11 +34,6 @@ async function initialize (args) {
 
 async function download (args) {
   let { drive, store, networker } = await initialize(args)
-  try {
-    await promisify(drive.metadata.update.bind(drive.metadata))({ ifAvailable: true })
-  } catch (err) {
-    // Suppress update error
-  }
 
   let stats = null
   let total, downloaded = 0
