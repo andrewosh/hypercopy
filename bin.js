@@ -22,7 +22,10 @@ async function initialize (args) {
   await networker.listen()
 
   await networker.seed(drive.discoveryKey, { announce: false, lookup: true })
-  await delay(500)
+  console.log('Waiting for a connection...')
+  await new Promise(resolve => {
+    networker.once('connection', resolve)
+  })
 
   return { drive, store, networker }
 }
