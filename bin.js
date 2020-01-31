@@ -120,7 +120,7 @@ const args = require('yargs')
     yargs.positional('output', {
       describe: 'The output directory',
       type: 'string',
-      default: process.cwd()
+      default: p.join(process.cwd(), 'output')
     })
     .demandOption(['key'])
     .help()
