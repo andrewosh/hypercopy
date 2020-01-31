@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const p = require('path')
 const fs = require('fs').promises
 const rimraf = require('rimraf')
