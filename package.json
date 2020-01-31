@@ -1,6 +1,6 @@
 {
   "name": "hypercopy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Quick file/directory copying with Hyperdrive",
   "bin": {
     "hypercopy": "bin.js"
