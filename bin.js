@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 const p = require('path')
-const fs = require('fs').promises
 const tmp = require('tmp-promise')
 const mirrorFolder = require('mirror-folder')
-const { SingleBar }  = require('cli-progress')
+const yargs = require('yargs')
+const { SingleBar } = require('cli-progress')
 
 const Corestore = require('corestore')
 const SwarmNetworker = require('@corestore/networker')
 const hyperdrive = require('hyperdrive')
-
-const STORE_PATH = '.tmp-hypercore-store'
+const applyNetworkingHeuristics = require('hyperdrive-network-heuristics')
 
 async function initialize (args, opts = {}) {
   const tmpDir = await tmp.dir({ unsafeCleanup: true })
@@ -18,14 +17,9 @@ async function initialize (args, opts = {}) {
   const networker = new SwarmNetworker(store)
 
   await drive.promises.ready()
-  await networker.join(drive.discoveryKey, { announce: opts.announce, lookup: opts.lookup })
+  await applyNetworkingHeuristics(drive, networker)
 
-  if (opts.wait) {
-    console.log('Waiting for a connection...')
-    await new Promise(resolve => {
-      drive.metadata.on('peer-add', resolve)
-    })
-  }
+  await networker.configure(drive.discoveryKey, { announce: opts.announce, lookup: opts.lookup, flush: false })
 
   return { drive, store, networker, cleanup }
 
@@ -40,22 +34,25 @@ async function initialize (args, opts = {}) {
 }
 
 async function copy (args) {
-  let { drive, store, networker } = await initialize(args, {
+  const output = args.output || p.join(process.cwd(), args.key.toString('hex'))
+  const key = args.key
+  console.log(`Copying drive with key ${key} into ${output}...`)
+
+  const { drive, cleanup } = await initialize(args, {
     wait: true,
     announce: false,
     lookup: true
   })
 
-  let stats = null
-  let total, downloaded = 0
+  let total; let downloaded = 0
   let updating = false
   await updateProgress()
 
-  let progress = new SingleBar({ clearOnComplete: false })
+  const progress = new SingleBar({ clearOnComplete: false })
   progress.start(total, downloaded)
   setInterval(updateProgressBar, 200)
 
-  const mirror = mirrorFolder({ name: '/', fs: drive }, { name: args.output }, { keepExisting: true })
+  const mirror = mirrorFolder({ name: '/', fs: drive }, { name: output }, { keepExisting: true })
   mirror.on('put', src => {
     progress.update(downloaded, { filename: src })
   })
@@ -76,13 +73,12 @@ async function copy (args) {
     let newDownloaded = 0
     let newTotal = 0
     const newStats = await drive.promises.stats('/')
-    for (const [file, fileStats] of newStats) {
+    for (const [, fileStats] of newStats) {
       newDownloaded += fileStats.downloadedBlocks
       newTotal += fileStats.blocks
     }
     downloaded = newDownloaded
     total = newTotal
-    stats = newStats
     updating = false
   }
 
@@ -94,21 +90,18 @@ async function copy (args) {
   }
 
   async function onerror (err) {
-    if (!err || typeof err === 'number') console.log('Stopping download and exiting...')
-    console.error('Stopping download due to error:', err)
+    if (err && err !== 'SIGINT' && err !== 'SIGTERM') console.error('Stopping download due to error:', err)
     return cleanup(err, false)
   }
-
 }
 
 async function create (args) {
-  let { drive, store, networker } = await initialize(args, {
+  const { drive, cleanup } = await initialize(args, {
     wait: false,
     announce: true,
     lookup: false
   })
-
-  console.log(`Copying folder ${args.input} into drive...`)
+  console.log(`Copying into ${drive.key.toString('hex')}`)
 
   const mirror = mirrorFolder(args.input, { name: '/', fs: drive })
   mirror.on('end', oncomplete)
@@ -118,19 +111,16 @@ async function create (args) {
   process.once('SIGTERM', onerror)
 
   async function oncomplete () {
-    console.log('Copy finished!')
-    console.log(`Drive Key: ${drive.key.toString('hex')}`)
-    return cleanup(null, true)
+    console.log('Copy finished! Drive is being seeded... (Exit with ctrl+c)')
   }
 
   async function onerror (err) {
-    if (!err || typeof err === 'number') console.log('Stopping creation and exiting...')
-    console.error('Stopping creation due to error:', err)
+    if (err && err !== 'SIGINT' && err !== 'SIGTERM') console.error('Stopping creation due to error:', err)
     return cleanup(err, true)
   }
 }
 
-require('yargs')
+const argv = yargs
   .command(['copy <key> [output]', '$0'], 'Copy the contents of a Hyperdrive into an output directory', yargs => {
     yargs.positional('key', {
       describe: 'The Hyperdrive key',
@@ -143,16 +133,16 @@ require('yargs')
     yargs.positional('output', {
       describe: 'The output directory',
       type: 'string',
-      default: process.cwd()
+      coerce: arg => p.resolve(arg)
     })
-    .demandOption(['key'])
-    .help()
+      .demandOption(['key'])
+      .help()
   }, copy)
   .command('create <input> [storage]', 'Create and seed a new Hyperdrive from an input directory', yargs => {
     yargs.positional('input', {
       describe: 'The input directory',
       type: 'string',
-      coerce: arg => p.resolve(arg),
+      coerce: arg => p.resolve(arg)
     })
     yargs.positional('storage', {
       describe: 'The output storage directory',
@@ -160,5 +150,6 @@ require('yargs')
       coerce: arg => p.resolve(arg)
     })
   }, create)
- .demandCommand(1)
- .argv
+  .demandCommand(1)
+  .help()
+  .argv

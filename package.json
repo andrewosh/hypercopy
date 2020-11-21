@@ -17,12 +17,14 @@
   },
   "homepage": "https://github.com/andrewosh/hypercopy#readme",
   "dependencies": {
+    "@corestore/networker": "^1.0.4",
     "cli-progress": "^3.6.0",
     "corestore": "^5.8.1",
-    "@corestore/networker": "^1.0.4",
     "hyperdrive": "^10.18.0",
+    "hyperdrive-network-heuristics": "^1.0.2",
     "mirror-folder": "^3.0.0",
     "rimraf": "^3.0.1",
+    "tmp-promise": "^3.0.2",
     "yargs": "^15.1.0"
   }
 }
