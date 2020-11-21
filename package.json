@@ -18,9 +18,9 @@
   "homepage": "https://github.com/andrewosh/hypercopy#readme",
   "dependencies": {
     "cli-progress": "^3.6.0",
-    "corestore": "^5.0.7",
-    "corestore-swarm-networking": "^4.0.2",
-    "hyperdrive": "^10.8.7",
+    "corestore": "^5.8.1",
+    "@corestore/networker": "^1.0.4",
+    "hyperdrive": "^10.18.0",
     "mirror-folder": "^3.0.0",
     "rimraf": "^3.0.1",
     "yargs": "^15.1.0"
